@@ -64,30 +64,30 @@ levels(nutl$lab)<-c("'Protein, g'", "'Calcium, mg'", "'Iron, mg'", expression('S
 ## get median nutrient values for reference in posterior plot
 median_fish<-nutl %>% group_by(nutrient, lab, form) %>% summarise(med = median(mu))
 
+## join common names
+fb<-read.csv('Fishbase_species_names.csv')
+nutl<-nutl %>% left_join(fb)
+
 # Define UI for application that draws a histogram
 
 ui <- fluidPage(
     theme = bslib::bs_theme(bootswatch = "lux"),
     headerPanel("Fish nutrient content"),
-    p('Visualize and download nutrient concentrations for over 5,000 fish species.
-      To start, type one or more species names (latin/scientific name).'),
+    p('Visualize and download nutrient concentrations for over 5,000 fish species'),
     sidebarLayout(
         # Sidebar panel for inputs
         sidebarPanel(
-            # selectizeInput("sp", label = "Species", choices = c('Choose one' = '', unique(nut$species)), multiple=TRUE),
-            selectizeInput("sp", label = "Species", choices = NULL, multiple=TRUE),
+            selectizeInput("sp", label = "Scientific name", choices = NULL, multiple=TRUE),
+            selectizeInput("name", label = "Common name", choices = NULL, multiple=TRUE),
             selectizeInput("form", label = "Food type", choices = NULL),
             selectizeInput("diet", label = "Dietary population", choices = NULL),
-            # selectizeInput("form", label = "Food type", choices = unique(nutl$form), multiple=FALSE),
-            # selectizeInput("diet", label = "Dietary population", 
-            #                choices = c("Children (6mo - 5 yrs)", 'Adult women (18-65 yrs)', 'Pregnant women', 'Adult men (18-65 yrs)')),
             sliderInput("portion", "Portion size, g", value = 100, min = 10, max = 250, step=10),
             h4('Background'),
             HTML(r"(
-                 Nutrient values were predicted using a trait-based Bayesian model fitted to nutrient composition data from 610 fish species. Out-of-sample predictions were generated using trait values on Fishbase
+                 Nutrient values were predicted using a trait-based Bayesian model fitted to nutrient composition data from 610 fish species. Out-of-sample predictions were generated using trait values on Fishbase, which we
                 extracted for over 5,000 fish species recorded in global fisheries datasets, including large- and small-scale fisheries and marine and freshwater species. Nutrient predictions can be generated for different food types (raw, dry, fillet, whole), portion sizes, and dietary populations.
               <br> <br>
-              Full methods available <a href="https://github.com/mamacneil/NutrientFishbase/" target="_blank">here</a>. 
+              Statistical model available <a href="https://github.com/mamacneil/NutrientFishbase/" target="_blank">here</a>. 
               Recommended nutrient intakes from <a href="http://apps.who.int/iris/bitstream/handle/10665/42716/9241546123.pdf;jsessionid=6486EFA7F7BB0D6125BB5843B88327E7?sequence=1" target="_blank">WHO/FAO</a>, assuming 10% bioavailability for iron and moderate bioavailabity for zinc.)"),
             h4('Read more'),
             HTML(r"(
@@ -101,12 +101,12 @@ ui <- fluidPage(
                  )"),
             h4('Code'),
             HTML(r"(Created by James Robinson, with help from Kendra Byrd, Pip Cohen, Nick Graham, Christina Hicks, Aaron MacNeil, Eva Maire, and Sarah Martin. 
-                 Data visualisation in R using tidyverse with ggradar, deployed using Shiny. Code available here.)")),
+                 Data visualisation in R using tidyverse with ggradar, deployed using Shiny.)")),
         # Main panel for displaying outputs
         mainPanel(
             tabsetPanel(
-                tabPanel("Recommend intakes", plotOutput('spider')),
-                tabPanel("Nutrient concentrations", plotOutput('posteriors')),
+                tabPanel("Recommend intakes", downloadButton('downloadP1', 'Save as PDF'), plotOutput('spider')),
+                tabPanel("Nutrient concentrations", downloadButton('downloadP2', 'Save as PDF'), plotOutput('posteriors')),
                 tabPanel("Download table",p(''), p(''),
                          downloadButton('download', 'Download .csv'),
                          tableOutput("table")
@@ -119,11 +119,35 @@ ui <- fluidPage(
 server<-function(input, output, session) {
   
     updateSelectizeInput(session, 'sp', choices = c(nut$species), server = TRUE)
+    updateSelectizeInput(session, 'name', choices = c(nutl$fbname), server = TRUE)
     updateSelectizeInput(session, "form", choices = unique(nutl$form), server = TRUE)
     updateSelectizeInput(session, "diet", choices = c("Children (6mo - 5 yrs)", 'Adult women (18-65 yrs)', 'Pregnant women', 'Adult men (18-65 yrs)'), server = TRUE)
   
-    nutSelect<-reactive({req(input$sp) 
-              input$sp})
+    checker<-reactive({
+    
+    })
+    
+    
+    colSelect<-reactive({
+        if(is.null(input$sp)) {c('fbname', 'nutrient', 'rni')} else
+         {c('species', 'nutrient', 'rni')}})
+    
+    nutSelect<-reactive({
+        validate(need(!is.null(c(input$sp, input$name)), 'To start, type one or more scientific or common names'))
+        if(is.null(input$sp)){
+            req(input$name) 
+            nutl$species[nutl$fbname %in% input$name]
+        } else {req(input$sp) 
+            input$sp}
+    })
+    nameSelect<-reactive({
+        validate(need(!is.null(c(input$sp, input$name)), 'To start, type one or more scientific or common names'))
+        if(is.null(input$name)){
+            req(input$sp) 
+            nutl$fbname[nutl$species %in% input$sp]
+        } else {req(input$name) 
+            input$name}
+    })
     frmSelect<-reactive({req(input$form) 
               input$form})
     rnSelect<-reactive({req(input$diet) 
@@ -133,10 +157,11 @@ server<-function(input, output, session) {
     
     ## outputs
     
-    output$spider <- renderPlot({
+    spiderPlot <- reactive({
         
         ## arrange data
         dat<-nutl[nutl$species %in% nutSelect(),] %>% 
+            filter(fbname %in% nameSelect()) %>% 
             filter(form == frmSelect()) %>% 
             filter(nutrient != 'Protein') %>% 
             ungroup() %>% 
@@ -147,19 +172,28 @@ server<-function(input, output, session) {
             mutate(rni = rni / (100/ptnSelect())) %>% 
             mutate(rni = rni/100) %>%
             ## cap nutrient RDA at 100% (i.e. a species either meets (100%) or doesn't meet (<100%) the RDA)
-            mutate(rni = case_when(rni > 1 ~ 1, TRUE ~ rni)) %>% 
-            select(species, nutrient, rni) %>% 
-            pivot_wider(names_from = nutrient, values_from = rni)
+            mutate(rni = case_when(rni > 1 ~ 1, TRUE ~ rni))
         
-        tit<-'Recommended Nutrient Intake (Daily)'
-        cap<-if(str_detect(rnSelect(), 'Children')){
-                    paste0('Children (6 mo - 5 yrs) from a ', ptnSelect(), 'g portion')} else 
+        if(colSelect()[1] == 'fbname'){
+            fbname_long<-paste0(unique(dat$fbname), ' = ', unique(dat$species), collapse='\n')} 
+        else
+            {fbname_long<-paste0(unique(dat$species), ' = ', unique(dat$fbname), collapse='\n')}
+    
+        dat<-dat[,colSelect()]
+        dat<-dat %>% pivot_wider(names_from = nutrient, values_from = rni)
+        
+        
+        tit<-if(str_detect(rnSelect(), 'Children')){
+                    paste0('children (6 mo - 5 yrs) from a ', ptnSelect(), ' g portion')} else 
                       if(str_detect(rnSelect(), 'Adult women')){
-                    paste0('Adult women (18-65) from a ', ptnSelect(), 'g portion')} else
+                    paste0('adult women (18-65) from a ', ptnSelect(), ' g portion')} else
                       if(str_detect(rnSelect(), 'Adult men')){
-                        paste0('Adult men (18-65) from a ', ptnSelect(), 'g portion')} else
+                        paste0('adult men (18-65) from a ', ptnSelect(), ' g portion')} else
                           if(str_detect(rnSelect(), 'Pregnant')){
-                            paste0('Pregnant women from a ', ptnSelect(), 'g portion')}
+                            paste0('pregnant women from a ', ptnSelect(), ' g portion')}
+        tit<-paste0('\n\nRecommended intakes for ', tit)
+        subtit<-'\nRadar plots show the contribution of a single fish portion to recommended daily nutrient intakes (capped at 100%).'
+        cap<-paste('\n\n\n', fbname_long)
         
         ggradar(dat, 
                         group.colours = pcols,
@@ -171,21 +205,35 @@ server<-function(input, output, session) {
                         fill=TRUE,
                         gridline.mid.colour = "grey") + 
                 labs(
-                    # title = tit, 
-                    caption = cap) +
+                    title = tit,
+                    subtitle = subtit,
+                    caption = cap
+                    ) +
                 coord_equal(clip='off') +
             theme(
                 plot.title = element_text(size=14, colour='black', face=2, hjust=1),
-                plot.caption = element_text(size=12, colour='#636363', face=1))
-    
+                plot.subtitle = element_text(size=11, colour='black', face=3, hjust=1),
+                plot.caption = element_text(size=12, colour='#636363', face=3),
+                legend.text = element_text(size = 11))
+        
     })
     
-    output$posteriors <- renderPlot({
+    postPlot <- reactive({
         
         dat2<-nutl[nutl$species %in% nutSelect(),] %>%
-            filter(form == frmSelect())
+            filter(form == frmSelect()) %>% 
+            filter(fbname %in% nameSelect()) 
         
+        dat2$species<-factor(dat2$species, levels = unique(nutSelect()))
+        
+        if(colSelect()[1] == 'fbname'){
+        fbname_long<-paste0(unique(dat2$fbname), ' = ', unique(dat2$species), collapse='\n')} else
+            {fbname_long<-paste0(unique(dat2$species), ' = ', unique(dat2$fbname), collapse='\n')}
+            
         median_dat<-median_fish %>% filter(form == frmSelect())
+        
+        cap2<-paste0('\n\nDashed grey line is median value across all fish species.\nPoints are median value for each species, with 95% and 50% intervals.\nNutrient units in panel titles.\n\n',
+                     fbname_long)
         
         ggplot(dat2, aes(col=species)) + 
             geom_hline(data = median_dat, aes(yintercept = med), linetype=5, col='grey50') +
@@ -195,30 +243,38 @@ server<-function(input, output, session) {
             facet_wrap(~lab, scales='free', nrow=1, labeller=label_parsed) +
             labs(x = '', y = 'concentration per 100 g', 
                  # title = 'Posterior predicted nutrient concentration',
-                 caption = '\n\nDashed grey line is median value across all fish species.\nPoints are median value for each species, with 95% and 50% intervals.\nNutrient units in panel titles.') +
+                 caption = cap2) +
             scale_colour_manual(values = pcols) +
             theme(axis.ticks.x = element_blank(),
                   axis.text.x = element_blank(),
                   axis.line.x = element_blank(),
                   strip.text.x = element_text(size = 12),
                   legend.title=element_blank(),
-                  plot.caption = element_text(size=12, colour='#636363', face=1),
-                    plot.title = element_text(size=14, colour='black', face=2))
+                  plot.caption = element_text(size=12, colour='#636363', face=3),
+                    plot.title = element_text(size=14, colour='black', face=2),
+                  legend.text = element_text(size = 11))
     })
     
-    output$download <- downloadHandler(
-        filename = "Species_Nutrient_Predictions.csv",
-        content = function(file) {
-            write.csv(nutl[nutl$species %in% nutSelect(),] %>%
-                          filter(form == frmSelect()) %>% select(-lab, -id), file)
+    output$spider<- renderPlot({spiderPlot()})
+    
+    output$downloadP1 <- downloadHandler(
+        filename = 'Species_RNI.pdf', 
+        content = function(file){
+        ggsave(file, spiderPlot(), height = 5, width = 12)
+    })
+    
+    output$posteriors<- renderPlot({postPlot()})
+    output$downloadP2 <- downloadHandler(
+        filename = 'Species_posteriors.pdf', 
+        content = function(file){
+            ggsave(file, postPlot(), height = 7, width = 12)
         })
     
-    output$table <- renderTable({
-        
-        nutl[nutl$species %in% nutSelect(),] %>%
+    tabber<-reactive({  nutl[nutl$species %in% nutSelect(),] %>%
+            filter(fbname %in% nameSelect()) %>% 
             filter(form == frmSelect()) %>% 
-        select(species, form, nutrient, mu:u95, unit, rni_women, rni_men, rni_pregnant, rni_kids) %>%  
-            rename('Mean_concentration_per_100g'  = mu,
+            select(species, fbname, form, nutrient, mu:u95, unit, rni_women, rni_men, rni_pregnant, rni_kids) %>%  
+            rename('Concentration_per_100g'  = mu,
                    'Lower 95%'  = l95,
                    'Upper 95%'  = u95,
                    'Lower 50%'  = l50,
@@ -226,12 +282,20 @@ server<-function(input, output, session) {
                    'Nutrient' = nutrient,
                    'Unit' = unit,
                    'Species' = species,
+                   'FishbaseName' = fbname,
                    'RNI_adult_women_18-65' = rni_women,
                    'RNI_adult_men_18-65' = rni_men,
                    'RNI_pregnant_women' = rni_pregnant,
                    'RNI_children_6mo-5yr' = rni_kids) %>% 
-            arrange(Nutrient) 
-    })
+            arrange(Nutrient) })
+    
+    output$download <- downloadHandler(
+        filename = "Species_Nutrient_Predictions.csv",
+        content = function(file) {
+            write.csv(tabber(), file)
+        })
+    
+    output$table <- renderTable({tabber()})
 
 }
 
