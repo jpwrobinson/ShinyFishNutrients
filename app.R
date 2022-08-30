@@ -72,7 +72,7 @@ nutl<-nutl %>% left_join(fb)
 
 ui <- fluidPage(
     theme = bslib::bs_theme(bootswatch = "lux"),
-    headerPanel(div("Fish nutrient content", img(src = "FishNapp_logo.png", height=98, width=130))),
+    headerPanel(div("Fish nutrient content", img(src = "FishNapp_logo.png", height=98, width=130)), windowTitle = 'Fish nutrient content'),
     p('Visualize and download nutrient concentrations for over 5,000 fish species'),
     sidebarLayout(
         # Sidebar panel for inputs
