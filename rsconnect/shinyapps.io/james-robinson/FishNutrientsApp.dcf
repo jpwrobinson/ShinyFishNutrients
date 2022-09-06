@@ -5,9 +5,9 @@ account: james-robinson
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5867169
-bundleId: 6274163
+bundleId: 6274224
 url: https://james-robinson.shinyapps.io/FishNutrientsApp/
-when: 1662478370.68266
-lastSyncTime: 1662478370.68266
+when: 1662479101.75959
+lastSyncTime: 1662479101.75959
 asMultiple: FALSE
 asStatic: FALSE
