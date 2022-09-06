@@ -88,7 +88,9 @@ ui <- fluidPage(
                 extracted for over 5,000 fish species recorded in global fisheries datasets, including large- and small-scale fisheries and marine and freshwater species. Nutrient predictions can be generated for different food types (raw, dry, fillet, whole), portion sizes, and dietary populations.
               <br> <br>
               Statistical model available <a href="https://github.com/mamacneil/NutrientFishbase/" target="_blank">here</a>. 
-              Recommended nutrient intakes from <a href="http://apps.who.int/iris/bitstream/handle/10665/42716/9241546123.pdf;jsessionid=6486EFA7F7BB0D6125BB5843B88327E7?sequence=1" target="_blank">WHO/FAO</a>, assuming 10% bioavailability for iron and moderate bioavailabity for zinc.)"),
+              Recommended nutrient intakes are available <a href=https://github.com/jpwrobinson/ShinyFishNutrients/blob/main/rda_reader.R target="_blank">here</a>. Minerals and vitamin A are recommended intakes from <a href="http://apps.who.int/iris/bitstream/handle/10665/42716/9241546123.pdf" target="_blank">WHO/FAO</a>,
+              assuming 10% bioavailability for iron and moderate bioavailabity for zinc. 
+              Omega-3 fatty acids are adequate intakes (AI) from <a href="https://pubmed.ncbi.nlm.nih.gov/12449285/" target="_blank">National Academies</a>.)"),
             h4('Read more'),
             HTML(r"(
                     <ul>
