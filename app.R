@@ -3,6 +3,7 @@
 
 ## packages
 library(shiny)
+library(shinyWidgets)
 library(tidyverse)
 library(ggradar)
 
@@ -85,7 +86,7 @@ ui <- fluidPage(
             h4('Background'),
             HTML(r"(
                  Nutrient values were predicted using a trait-based Bayesian model fitted to nutrient composition data from 610 fish species. Out-of-sample predictions were generated using trait values on Fishbase, which we
-                extracted for over 5,000 fish species recorded in global fisheries datasets, including large- and small-scale fisheries and marine and freshwater species. Nutrient predictions can be generated for different food types (raw, dry, fillet, whole), portion sizes, and dietary populations.
+                extracted for over 5,000 fish species recorded in global fisheries datasets, including large- and small-scale fisheries and marine and freshwater species. Nutrient content data can be generated for different food types, based on the modelled differences between samples of raw muscle tissue (i.e. fillet), dried fish, and whole fish. Recommended intakes can be generated for specific portion sizes and dietary populations.
               <br> <br>
               Statistical model available <a href="https://github.com/mamacneil/NutrientFishbase/" target="_blank">here</a>. 
               Recommended nutrient intakes are available <a href=https://github.com/jpwrobinson/ShinyFishNutrients/blob/main/rda_reader.R target="_blank">here</a>. Minerals and vitamin A are recommended intakes from <a href="http://apps.who.int/iris/bitstream/handle/10665/42716/9241546123.pdf" target="_blank">WHO/FAO</a>,
@@ -119,17 +120,13 @@ ui <- fluidPage(
 )
 
 server<-function(input, output, session) {
-  
-    updateSelectizeInput(session, 'sp', choices = c(nut$species), server = TRUE)
-    updateSelectizeInput(session, 'name', choices = c(nutl$fbname), server = TRUE)
+    
+    
     updateSelectizeInput(session, "form", choices = unique(nutl$form), server = TRUE)
     updateSelectizeInput(session, "diet", choices = c("Children (6mo - 5 yrs)", 'Adult women (18-65 yrs)', 'Pregnant women', 'Adult men (18-65 yrs)'), server = TRUE)
-  
-    checker<-reactive({
-    
-    })
-    
-    
+    updateSelectizeInput(session, 'name', choices = c(nutl$fbname), server = TRUE)
+    updateSelectizeInput(session, 'sp', choices = c(nutl$species), server = TRUE)
+
     colSelect<-reactive({
         if(is.null(input$sp)) {c('fbname', 'nutrient', 'rni')} else
          {c('species', 'nutrient', 'rni')}})
@@ -150,12 +147,14 @@ server<-function(input, output, session) {
         } else {req(input$name) 
             input$name}
     })
+
     frmSelect<-reactive({req(input$form) 
               input$form})
     rnSelect<-reactive({req(input$diet) 
               input$diet})
     ptnSelect<-reactive({req(input$portion) 
               input$portion})
+
     
     ## outputs
     
