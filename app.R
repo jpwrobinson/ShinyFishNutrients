@@ -3,7 +3,7 @@
 
 ## packages
 library(shiny)
-library(shinyWidgets)
+library(shinyjs)
 library(tidyverse)
 library(ggradar)
 
@@ -72,6 +72,7 @@ nutl<-nutl %>% left_join(fb)
 # Define UI for application that draws a histogram
 
 ui <- fluidPage(
+    useShinyjs(),
     theme = bslib::bs_theme(bootswatch = "lux"),
     headerPanel(div("Fish nutrient content", img(src = "FishNapp_logo.png", height=98, width=130)), windowTitle = 'Fish nutrient content'),
     p('Visualize and download nutrient concentrations for over 5,000 fish species'),
@@ -121,12 +122,21 @@ ui <- fluidPage(
 
 server<-function(input, output, session) {
     
-    
+
+    observeEvent(length(c(input$sp, input$name)) == 0,
+                 {shinyjs::enable("name")
+                     shinyjs::enable("sp")})
+
     updateSelectizeInput(session, "form", choices = unique(nutl$form), server = TRUE)
     updateSelectizeInput(session, "diet", choices = c("Children (6mo - 5 yrs)", 'Adult women (18-65 yrs)', 'Pregnant women', 'Adult men (18-65 yrs)'), server = TRUE)
     updateSelectizeInput(session, 'name', choices = c(nutl$fbname), server = TRUE)
     updateSelectizeInput(session, 'sp', choices = c(nutl$species), server = TRUE)
-
+    
+    ## select species OR common name box
+    observeEvent(c(input$name,input$sp),
+                 {if(is.null(input$sp) & !is.null(input$name)) 
+                     {disable("sp") & enable('name')} else {enable('sp') & disable('name')}})
+    
     colSelect<-reactive({
         if(is.null(input$sp)) {c('fbname', 'nutrient', 'rni')} else
          {c('species', 'nutrient', 'rni')}})
