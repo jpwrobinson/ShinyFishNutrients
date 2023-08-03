@@ -1,5 +1,6 @@
 ### Shiny app to viz nutrient predictions (JPWR)
 # August 2022
+# updated August 2023 with rfishbase values
 
 ## packages
 library(shiny)
@@ -15,7 +16,7 @@ pcols<-c(RColorBrewer::brewer.pal(9, 'Set1'), 'black') ## 10 colors
 ## get RDA reference vals
 source('rda_reader.R')
 rda$nutrient<-str_to_title(rda$nutrient)
-rda$nutrient[rda$nutrient=='Vitamin_a']<-'VitaminA'
+rda$nutrient[rda$nutrient=='Vitamin_a']<-'Vitamina'
 rda$nutrient[rda$nutrient=='Omega_3']<-'Omega3'
 
 ## get nutrient units
@@ -23,24 +24,25 @@ units<-data.frame(nutrient = c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc',
                   unit = c('percent', 'mg', 'mg', 'mcg', 'mg', 'g', 'mcg'))
 
 ## load data
-nut<-read.csv('Species_Nutrient_Predictions_muscle_wet.csv') %>% 
+nut<-#read.csv('Species_Nutrient_Predictions_muscle_wet.csv') %>% 
+    read.csv('Species_Nutrient_Predictions_muscle_wet_FB.csv') %>% 
             mutate(species =str_replace_all(species, '_', ' '), id = paste(species, 'tissue_wet'), form = 'Raw (fillet)')
                    
-nut_dry_whole<-read.csv('Species_Nutrient_Predictions_whole_dried.csv') %>% 
-            mutate(species =str_replace_all(species, '_', ' '), id = paste(species, 'whole_dry'), form = 'Dried (whole)')
-
-nut_dry_tissue<-read.csv('Species_Nutrient_Predictions_muscle_dried.csv') %>% 
-            mutate(species =str_replace_all(species, '_', ' '), id = paste(species, 'tissue_dry'), form = 'Dried (fillet)')
+# nut_dry_whole<-read.csv('Species_Nutrient_Predictions_whole_dried.csv') %>% 
+#             mutate(species =str_replace_all(species, '_', ' '), id = paste(species, 'whole_dry'), form = 'Dried (whole)')
+# 
+# nut_dry_tissue<-read.csv('Species_Nutrient_Predictions_muscle_dried.csv') %>% 
+#             mutate(species =str_replace_all(species, '_', ' '), id = paste(species, 'tissue_dry'), form = 'Dried (fillet)')
 
 ## bind, remove any species-form duplicates
-nut<-rbind(nut, nut_dry_whole, nut_dry_tissue)
-nut<-nut[!duplicated(nut$id),]
+# nut<-rbind(nut, nut_dry_whole, nut_dry_tissue)
+# nut<-nut[!duplicated(nut$id),]
 
 ## tidy names
 nutl<-nut %>% 
-    select(-spec_code) %>% 
+    select(-SpecCode) %>% 
     pivot_longer(-c(species, id, form), names_to = 'temp', values_to = 'mu') %>% 
-    mutate(temp = str_replace_all(temp, '_A', 'A'),
+    mutate(temp = str_replace_all(temp, '_a', 'a'),
            temp = str_replace_all(temp, '_3', '3'),
            type = str_split_fixed(temp, '_', 2)[,2],
            nutrient = str_split_fixed(temp, '_', 2)[,1]) %>% 
@@ -53,8 +55,8 @@ nutl<-nut %>%
            rni_kids = mu/rni_kids*100,
            rni_men = mu/rni_men*100,
            rni_pregnant = mu/rni_pregnant*100) %>% 
-    mutate(nutrient = fct_relevel(nutrient, c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc', 'Omega3', 'VitaminA'))) %>% 
-    mutate(nutrient = recode(nutrient, Omega3 = 'Omega-3\nfatty acids', VitaminA = 'Vitamin A'))
+    mutate(nutrient = fct_relevel(nutrient, c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc', 'Omega3', 'Vitamina'))) %>% 
+    mutate(nutrient = recode(nutrient, Omega3 = 'Omega-3\nfatty acids', Vitamina = 'Vitamin A'))
     
 
 ## units in labels
@@ -87,7 +89,7 @@ ui <- fluidPage(
             h4('Background'),
             HTML(r"(
                  Nutrient values were predicted using a trait-based Bayesian model fitted to nutrient composition data from 610 fish species. Out-of-sample predictions were generated using trait values on Fishbase, which we
-                extracted for over 5,000 fish species recorded in global fisheries datasets, including large- and small-scale fisheries and marine and freshwater species. Nutrient content data can be generated for different food types, based on the modelled differences between samples of raw muscle tissue (i.e. fillet), dried fish, and whole fish. Recommended intakes can be generated for specific portion sizes and dietary populations.
+                extracted for over 5,000 fish species recorded in global fisheries datasets, including large- and small-scale fisheries and marine and freshwater species. Nutrient content data can be generated for 'wet' muscle tissue, based on the modelled differences between samples of raw muscle tissue (i.e. fillet), dried fish, and whole fish. Recommended intakes can be generated for specific portion sizes and dietary populations.
               <br> <br>
               Statistical model available <a href="https://github.com/mamacneil/NutrientFishbase/" target="_blank">here</a>. 
               Recommended nutrient intakes are available <a href=https://github.com/jpwrobinson/ShinyFishNutrients/blob/main/rda_reader.R target="_blank">here</a>. Minerals and vitamin A are recommended intakes from <a href="http://apps.who.int/iris/bitstream/handle/10665/42716/9241546123.pdf" target="_blank">WHO/FAO</a>,
@@ -142,7 +144,7 @@ server<-function(input, output, session) {
          {c('species', 'nutrient', 'rni')}})
     
     nutSelect<-reactive({
-        validate(need(!is.null(c(input$sp, input$name)), 'To start, type one or more scientific or common names'))
+        validate(need(!is.null(c(input$sp, input$name)), 'To start, type one or more scientific OR common names'))
         if(is.null(input$sp)){
             req(input$name) 
             nutl$species[nutl$fbname %in% input$name]
@@ -150,7 +152,7 @@ server<-function(input, output, session) {
             input$sp}
     })
     nameSelect<-reactive({
-        validate(need(!is.null(c(input$sp, input$name)), 'To start, type one or more scientific or common names'))
+        validate(need(!is.null(c(input$sp, input$name)), 'To start, type one or more scientific OR common names'))
         if(is.null(input$name)){
             req(input$sp) 
             nutl$fbname[nutl$species %in% input$sp]
@@ -243,13 +245,13 @@ server<-function(input, output, session) {
             
         median_dat<-median_fish %>% filter(form == frmSelect())
         
-        cap2<-paste0('\n\nDashed grey line is median value across all fish species.\nPoints are median value for each species, with 95% and 50% intervals.\nNutrient units in panel titles.\n\n',
+        cap2<-paste0('\n\nDashed grey line is median value across all fish species.\nPoints are median value for each species, with 95% certainty intervals.\nNutrient units in panel titles.\n\n',
                      fbname_long)
         
         ggplot(dat2, aes(col=species)) + 
             geom_hline(data = median_dat, aes(yintercept = med), linetype=5, col='grey50') +
             geom_pointrange(aes(species, mu, ymin = l95, ymax = u95)) +
-            geom_pointrange(aes(species, mu, ymin = l50, ymax = u50), size=1.2, fatten=0) +
+            # geom_pointrange(aes(species, mu, ymin = l50, ymax = u50), size=1.2, fatten=0) +
             geom_point(aes(species, mu)) +
             facet_wrap(~lab, scales='free', nrow=1, labeller=label_parsed) +
             labs(x = '', y = 'concentration per 100 g', 
@@ -288,8 +290,8 @@ server<-function(input, output, session) {
             rename('Concentration_per_100g'  = mu,
                    'Lower 95%'  = l95,
                    'Upper 95%'  = u95,
-                   'Lower 50%'  = l50,
-                   'Upper 50%'  = u50,
+                   # 'Lower 50%'  = l50,
+                   # 'Upper 50%'  = u50,
                    'Nutrient' = nutrient,
                    'Unit' = unit,
                    'Species' = species,
