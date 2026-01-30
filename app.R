@@ -1,6 +1,7 @@
 ### Shiny app to viz nutrient predictions (JPWR)
 # August 2022
 # updated August 2023 with rfishbase values
+# updated January 2026 with Aaron's data paper values
 
 ## packages
 library(shiny)
@@ -25,22 +26,12 @@ units<-data.frame(nutrient = c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc',
 
 ## load data
 nut<-read.csv('Species_Nutrient_Predictions_muscle_wet_Jan2026.csv') %>% 
-    # read.csv('Species_Nutrient_Predictions_muscle_wet_FB.csv') %>% 
+    # read.csv('Species_Nutrient_Predictions_muscle_wet_FB.csv') %>% # this is version on Fishbase, from rfishbase_nutrient_load.R
             mutate(species =str_replace_all(species, '_', ' '), id = paste(species, 'tissue_wet'), form = 'Raw (fillet)')
-                   
-# nut_dry_whole<-read.csv('Species_Nutrient_Predictions_whole_dried.csv') %>% 
-#             mutate(species =str_replace_all(species, '_', ' '), id = paste(species, 'whole_dry'), form = 'Dried (whole)')
-# 
-# nut_dry_tissue<-read.csv('Species_Nutrient_Predictions_muscle_dried.csv') %>% 
-#             mutate(species =str_replace_all(species, '_', ' '), id = paste(species, 'tissue_dry'), form = 'Dried (fillet)')
-
-## bind, remove any species-form duplicates
-# nut<-rbind(nut, nut_dry_whole, nut_dry_tissue)
-# nut<-nut[!duplicated(nut$id),]
 
 ## tidy names
 nutl<-nut %>% 
-    select(-SpecCode) %>% 
+    select(-spec_code) %>% 
     pivot_longer(-c(species, id, form), names_to = 'temp', values_to = 'mu') %>% 
     mutate(temp = str_replace_all(temp, '_a', 'a'),
            temp = str_replace_all(temp, '_3', '3'),
