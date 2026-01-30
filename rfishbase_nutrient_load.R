@@ -22,3 +22,13 @@ nut<-estimate(tax$Species) %>%
 nut_old<-read.csv('Species_Nutrient_Predictions_muscle_wet.csv') 
 
 write.csv(nut, file='Species_Nutrient_Predictions_muscle_wet_FB.csv')
+
+
+l25<-estimate(tax$Species) %>% filter(MaxLengthTL < 25)
+species(tax$Species, fields = c('Ocean'))
+dist <- fb_tbl("distribution")
+
+region_data <- rfishbase::distributions(l25$Species, fields = c("SpecCode", "Species", "FBname", "Status", "Country", "FAOarea", "Ocean"))
+
+a<-ecosystem(l25$Species[1])
+a %>% head

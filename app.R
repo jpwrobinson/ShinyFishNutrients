@@ -24,8 +24,8 @@ units<-data.frame(nutrient = c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc',
                   unit = c('percent', 'mg', 'mg', 'mcg', 'mg', 'g', 'mcg'))
 
 ## load data
-nut<-#read.csv('Species_Nutrient_Predictions_muscle_wet.csv') %>% 
-    read.csv('Species_Nutrient_Predictions_muscle_wet_FB.csv') %>% 
+nut<-read.csv('Species_Nutrient_Predictions_muscle_wet_Jan2026.csv') %>% 
+    # read.csv('Species_Nutrient_Predictions_muscle_wet_FB.csv') %>% 
             mutate(species =str_replace_all(species, '_', ' '), id = paste(species, 'tissue_wet'), form = 'Raw (fillet)')
                    
 # nut_dry_whole<-read.csv('Species_Nutrient_Predictions_whole_dried.csv') %>% 
