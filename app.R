@@ -49,8 +49,8 @@ nutl<-nut %>%
            rni_kids = median/rni_kids*100,
            rni_men = median/rni_men*100,
            rni_pregnant = median/rni_pregnant*100) %>% 
-    mutate(nutrient = fct_relevel(nutrient, c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc', 'Omega_3', 'Vitamin_A'))) %>% 
-    mutate(nutrient = recode(nutrient, Omega_3 = 'Omega-3\nfatty acids', Vitamin_A = 'Vitamin A'))
+    mutate(nutrient = fct_relevel(nutrient, c('Protein', 'Calcium', 'Iron','Magnesium', 'Phosphorus', 'Selenium', 'Zinc', 'Omega_3', 'Vitamin_A', 'Vitamin_B12'))) %>% 
+    mutate(nutrient = recode(nutrient, Omega_3 = 'Omega-3\nfatty acids', Vitamin_A = 'Vitamin A', Vitamin_B12 = 'Vitamin B12'))
     
 
 ## units in labels
@@ -101,7 +101,7 @@ ui <- fluidPage(
                     </ul>
                  )"),
             h4('Code'),
-            HTML(r"(Created by James Robinson, with help from Kendra Byrd, Pip Cohen, Nick Graham, Christina Hicks, Aaron MacNeil, Eva Maire, and Sarah Martin. 
+            HTML(r"(Created by James Robinson, with Kendra Byrd, Pip Cohen, Nick Graham, Christina Hicks, Aaron MacNeil, Eva Maire, and Sarah Martin. 
                  Data visualisation in R using tidyverse with ggradar, deployed using Shiny.)")),
         # Main panel for displaying outputs
         mainPanel(
@@ -189,6 +189,8 @@ server<-function(input, output, session) {
     
         dat<-dat[,colSelect()]
         dat<-dat %>% pivot_wider(names_from = nutrient, values_from = rni)
+        dat<-dat %>% select(species, Calcium, Iron, Magnesium, Phosphorus, Selenium, Zinc,
+                            'Omega-3\nfatty acids', 'Vitamin A', 'Vitamin B12')
         
         
         tit<-if(str_detect(rnSelect(), 'Children')){
@@ -240,7 +242,7 @@ server<-function(input, output, session) {
             
         median_dat<-median_fish %>% filter(form == frmSelect())
         
-        cap2<-paste0('\n\nDashed grey line is median value across all fish species.\nPoints are median value for each species, with 95% certainty intervals.\nNutrient units in panel titles.\n\n',
+        cap2<-paste0('\n\nDashed grey line is median value across all fish species.\nPoints are median value for each species, with 90% certainty intervals.\nNutrient units in panel titles.\n\n',
                      fbname_long)
         
         ggplot(dat2, aes(col=species)) + 
