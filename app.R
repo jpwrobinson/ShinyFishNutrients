@@ -31,7 +31,7 @@ nut<-read.csv('Species_Nutrient_Predictions_muscle_wet_Jan2026.csv') %>%
 
 ## tidy names
 nutl<-nut %>% 
-    select(-spec_code) %>% 
+    select(species, id, form, Selenium_median:Vitamin_B12_u90) %>% 
     pivot_longer(-c(species, id, form), names_to = 'temp', values_to = 'mu') %>% 
     mutate(temp = str_replace_all(temp, '_a', 'a'),
            temp = str_replace_all(temp, '_3', '3'),
