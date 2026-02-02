@@ -15,14 +15,15 @@ theme_set(theme_sleek())
 pcols<-c(RColorBrewer::brewer.pal(9, 'Set1'), 'black') ## 10 colors
 
 ## get RDA reference vals
-source('rda_reader.R')
+source('rda_reader_integrated.R')
 rda$nutrient<-str_to_title(rda$nutrient)
-rda$nutrient[rda$nutrient=='Vitamin_a']<-'Vitamina'
-rda$nutrient[rda$nutrient=='Omega_3']<-'Omega3'
+rda$nutrient[rda$nutrient=='Vitamin_a']<-'Vitamin_A'
+rda$nutrient[rda$nutrient=='Vitamin_d']<-'Vitamin_D'
+rda$nutrient[rda$nutrient=='Vitamin_b12']<-'Vitamin_B12'
 
 ## get nutrient units
-units<-data.frame(nutrient = c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc', 'Omega3', 'VitaminA'),
-                  unit = c('percent', 'mg', 'mg', 'mcg', 'mg', 'g', 'mcg'))
+units<-data.frame(nutrient = c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc', 'Omega_3','Magnesium', 'Phosphorus', 'Vitamin_A', 'Vitamin_B12'),
+                  unit = c('percent', 'mg', 'mg', 'mcg', 'mg', 'g', 'mg', 'mg','mcg', 'mcg'))
 
 ## load data
 nut<-read.csv('Species_Nutrient_Predictions_muscle_wet_Jan2026.csv') %>% 
@@ -33,30 +34,33 @@ nut<-read.csv('Species_Nutrient_Predictions_muscle_wet_Jan2026.csv') %>%
 nutl<-nut %>% 
     select(species, id, form, Selenium_median:Vitamin_B12_u90) %>% 
     pivot_longer(-c(species, id, form), names_to = 'temp', values_to = 'mu') %>% 
-    mutate(temp = str_replace_all(temp, '_a', 'a'),
-           temp = str_replace_all(temp, '_3', '3'),
-           type = str_split_fixed(temp, '_', 2)[,2],
-           nutrient = str_split_fixed(temp, '_', 2)[,1]) %>% 
+    mutate(type = ifelse(str_detect(temp, "l90"), 'l90', NA),
+           type = ifelse(str_detect(temp, "u90"), 'u90', type),
+           type = ifelse(str_detect(temp, "median"), 'median', type),
+           nutrient = str_replace_all(temp, '_median', ''),
+           nutrient = str_replace_all(nutrient, '_l90', ''),
+           nutrient = str_replace_all(nutrient, '_u90', '')) %>% 
     select(-temp) %>% 
     pivot_wider(names_from=type, values_from = mu) %>% 
     ## add RDA and units
     left_join(rda) %>% 
     left_join(units) %>% 
-    mutate(rni_women = mu/rni_women*100,
-           rni_kids = mu/rni_kids*100,
-           rni_men = mu/rni_men*100,
-           rni_pregnant = mu/rni_pregnant*100) %>% 
-    mutate(nutrient = fct_relevel(nutrient, c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc', 'Omega3', 'Vitamina'))) %>% 
-    mutate(nutrient = recode(nutrient, Omega3 = 'Omega-3\nfatty acids', Vitamina = 'Vitamin A'))
+    mutate(rni_women = median/rni_women*100,
+           rni_kids = median/rni_kids*100,
+           rni_men = median/rni_men*100,
+           rni_pregnant = median/rni_pregnant*100) %>% 
+    mutate(nutrient = fct_relevel(nutrient, c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc', 'Omega_3', 'Vitamin_A'))) %>% 
+    mutate(nutrient = recode(nutrient, Omega_3 = 'Omega-3\nfatty acids', Vitamin_A = 'Vitamin A'))
     
 
 ## units in labels
 nutl$lab<-nutl$nutrient
 levels(nutl$lab)<-c("'Protein, g'", "'Calcium, mg'", "'Iron, mg'", expression('Selenium, '*mu*'g'), 
-                    "'Zinc, mg'", "'Omega-3, g'", expression('Vitamin A, '*mu*'g'))
+                    "'Zinc, mg'", "'Omega-3, g'", expression('Vitamin A, '*mu*'g'), 
+                    "'Magnesium, mg'", "'Phosphorus, mg'", expression('Vitamin B12, '*mu*'g'))
 
 ## get median nutrient values for reference in posterior plot
-median_fish<-nutl %>% group_by(nutrient, lab, form) %>% summarise(med = median(mu))
+median_fish<-nutl %>% group_by(nutrient, lab, form) %>% summarise(med = median(median))
 
 ## join common names
 fb<-read.csv('Fishbase_species_names.csv')
@@ -200,7 +204,7 @@ server<-function(input, output, session) {
         cap<-paste('\n\n\n', fbname_long)
         
         ggradar(dat, 
-                        group.colours = pcols,
+                        group.colours = pcols[1:length(nutSelect())],
                         base.size = 1,
                         group.point.size = 2,
                         group.line.width = 1,
@@ -241,10 +245,10 @@ server<-function(input, output, session) {
         
         ggplot(dat2, aes(col=species)) + 
             geom_hline(data = median_dat, aes(yintercept = med), linetype=5, col='grey50') +
-            geom_pointrange(aes(species, mu, ymin = l95, ymax = u95)) +
-            # geom_pointrange(aes(species, mu, ymin = l50, ymax = u50), size=1.2, fatten=0) +
-            geom_point(aes(species, mu)) +
-            facet_wrap(~lab, scales='free', nrow=1, labeller=label_parsed) +
+            geom_pointrange(aes(species, median, ymin = l90, ymax = u90)) +
+            # geom_pointrange(aes(species, median, ymin = l50, ymax = u50), size=1.2, fatten=0) +
+            geom_point(aes(species, median)) +
+            facet_wrap(~lab, scales='free', nrow=2, labeller=label_parsed) +
             labs(x = '', y = 'concentration per 100 g', 
                  # title = 'Posterior predicted nutrient concentration',
                  caption = cap2) +
@@ -277,10 +281,10 @@ server<-function(input, output, session) {
     tabber<-reactive({  nutl[nutl$species %in% nutSelect(),] %>%
             filter(fbname %in% nameSelect()) %>% 
             filter(form == frmSelect()) %>% 
-            select(species, fbname, form, nutrient, mu:u95, unit, rni_women, rni_men, rni_pregnant, rni_kids) %>%  
-            rename('Concentration_per_100g'  = mu,
-                   'Lower 95%'  = l95,
-                   'Upper 95%'  = u95,
+            select(species, fbname, form, nutrient, median:u90, unit, rni_women, rni_men, rni_pregnant, rni_kids) %>%  
+            rename('Concentration_per_100g'  = median,
+                   'Lower 90%'  = l90,
+                   'Upper 90%'  = u90,
                    # 'Lower 50%'  = l50,
                    # 'Upper 50%'  = u50,
                    'Nutrient' = nutrient,
