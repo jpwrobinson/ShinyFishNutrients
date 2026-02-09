@@ -5,7 +5,7 @@
 ## Minerals and vitamin are RNI from various sources, collated by Kendra Byrd and Lydia O'Meara
 ## See Table SX in dried fish project (Robinson 2025 PNAS)
 ## JPWR added magnesium and phosphorus in Feb 2026 for shiny app, based on Allen et al. 2020
-## All oregnant women and men values are from harmonized guidelines (Allen et al. 2020 Am S Nutrition)
+## All pregnant women and men values are from harmonized guidelines (Allen et al. 2020 Am S Nutrition)
 
 rda<-data.frame(nutrient = c('calcium', 'iron', 'selenium', 'zinc','iodine','magnesium','phosphorus', 'omega_3', 'vitamin_a', 'vitamin_d', 'vitamin_b12'))
 

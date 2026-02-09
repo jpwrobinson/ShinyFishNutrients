@@ -22,8 +22,8 @@ rda$nutrient[rda$nutrient=='Vitamin_d']<-'Vitamin_D'
 rda$nutrient[rda$nutrient=='Vitamin_b12']<-'Vitamin_B12'
 
 ## get nutrient units
-units<-data.frame(nutrient = c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc', 'Omega_3','Magnesium', 'Phosphorus', 'Vitamin_A', 'Vitamin_B12'),
-                  unit = c('percent', 'mg', 'mg', 'mcg', 'mg', 'g', 'mg', 'mg','mcg', 'mcg'))
+units<-data.frame(nutrient = c('Protein', 'Calcium', 'Iron', 'Selenium', 'Zinc','Iodine', 'Omega_3','Magnesium', 'Phosphorus', 'Vitamin_A', 'Vitamin_B12', 'Vitamin_D'),
+                  unit = c('percent', 'mg', 'mg', 'mcg', 'mg','mcg', 'g', 'mg', 'mg','mcg', 'mcg', 'mcg'))
 
 ## load data
 nut<-read.csv('Species_Nutrient_Predictions_muscle_wet_Jan2026.csv') %>% 
@@ -55,9 +55,10 @@ nutl<-nut %>%
 
 ## units in labels
 nutl$lab<-nutl$nutrient
-levels(nutl$lab)<-c("'Protein, g'", "'Calcium, mg'", "'Iron, mg'", expression('Selenium, '*mu*'g'), 
+levels(nutl$lab)<-c("'Protein, g'", "'Calcium, mg'", "'Iron, mg'", 
+                    "'Magnesium, mg'", "'Phosphorus, mg'", expression('Selenium, '*mu*'g'),
                     "'Zinc, mg'", "'Omega-3, g'", expression('Vitamin A, '*mu*'g'), 
-                    "'Magnesium, mg'", "'Phosphorus, mg'", expression('Vitamin B12, '*mu*'g'))
+                    expression('Vitamin B12, '*mu*'g'))
 
 ## get median nutrient values for reference in posterior plot
 median_fish<-nutl %>% group_by(nutrient, lab, form) %>% summarise(med = median(median))
@@ -71,7 +72,7 @@ nutl<-nutl %>% left_join(fb)
 ui <- fluidPage(
     useShinyjs(),
     theme = bslib::bs_theme(bootswatch = "lux"),
-    headerPanel(div("Fish nutrient content", img(src = "FishNapp_logo.png", height=98, width=130)), windowTitle = 'Fish nutrient content'),
+    headerPanel(div("Fish nutrient content [2026 UPDATE]", img(src = "FishNapp_logo.png", height=98, width=130)), windowTitle = 'Fish nutrient content'),
     p('Visualize and download nutrient concentrations for over 5,000 fish species'),
     sidebarLayout(
         # Sidebar panel for inputs
@@ -81,15 +82,16 @@ ui <- fluidPage(
             selectizeInput("form", label = "Food type", choices = NULL),
             selectizeInput("diet", label = "Dietary population", choices = NULL),
             sliderInput("portion", "Portion size, g", value = 100, min = 10, max = 250, step=10),
+            h4('Recommend intakes'),
+            tableOutput("table_rda"),
             h4('Background'),
             HTML(r"(
                  Nutrient values were predicted using a trait-based Bayesian model fitted to nutrient composition data from 610 fish species. Out-of-sample predictions were generated using trait values on Fishbase, which we
                 extracted for over 5,000 fish species recorded in global fisheries datasets, including large- and small-scale fisheries and marine and freshwater species. Nutrient content data can be generated for 'wet' muscle tissue, based on the modelled differences between samples of raw muscle tissue (i.e. fillet), dried fish, and whole fish. Recommended intakes can be generated for specific portion sizes and dietary populations.
               <br> <br>
               Statistical model available <a href="https://github.com/mamacneil/NutrientFishbase/" target="_blank">here</a>. 
-              Recommended nutrient intakes are available <a href=https://github.com/jpwrobinson/ShinyFishNutrients/blob/main/rda_reader.R target="_blank">here</a>. Minerals and vitamin A are recommended intakes from <a href="http://apps.who.int/iris/bitstream/handle/10665/42716/9241546123.pdf" target="_blank">WHO/FAO</a>,
-              assuming 10% bioavailability for iron and moderate bioavailabity for zinc. 
-              Omega-3 fatty acids are adequate intakes (AI) from <a href="https://pubmed.ncbi.nlm.nih.gov/12449285/" target="_blank">National Academies</a>.)"),
+              Recommended nutrient intakes are available <a href=https://github.com/jpwrobinson/ShinyFishNutrients/blob/main/rda_reader_integrated.R target="_blank">here</a>. Recommended intakes based on harmonized guidelines from multiple sources [<a href="https://www.sciencedirect.com/science/article/pii/S2161831322002782?via%3Dihub" target="_blank">1</a>, <a href="https://www.pnas.org/doi/10.1073/pnas.2426844122" target="_blank">2</a>]
+              assuming 10% bioavailability for iron and moderate bioavailabity for zinc.)",
             h4('Read more'),
             HTML(r"(
                     <ul>
@@ -101,7 +103,7 @@ ui <- fluidPage(
                     </ul>
                  )"),
             h4('Code'),
-            HTML(r"(Created by James Robinson, with Kendra Byrd, Pip Cohen, Nick Graham, Christina Hicks, Aaron MacNeil, Eva Maire, and Sarah Martin. 
+            HTML(r"(Created by James Robinson, with Kendra Byrd, Pip Cohen, Nick Graham, Christina Hicks, Eva Maire, Lydia O'Meara, Sarah Martin & Aaron MacNeil. 
                  Data visualisation in R using tidyverse with ggradar, deployed using Shiny.)")),
         # Main panel for displaying outputs
         mainPanel(
@@ -306,6 +308,20 @@ server<-function(input, output, session) {
         })
     
     output$table <- renderTable({tabber()})
+
+    tabber2<-reactive({
+        rda %>% left_join(units) %>%
+        mutate(
+            nutrient = str_replace_all(nutrient, '_', '\\ '),
+            rni = case_when(str_detect(rnSelect(), 'Children') ~ rni_kids,
+                                            str_detect(rnSelect(), 'Adult women')~rni_women,
+                                            str_detect(rnSelect(), 'Adult men')~rni_men,
+                                            str_detect(rnSelect(), 'Pregnant')~rni_pregnant)) %>%
+        select(nutrient, rni, unit) %>% 
+        mutate(rni =  sprintf("%g", rni))
+        })
+
+    output$table_rda <- renderTable({tabber2()})
 
 }
 
