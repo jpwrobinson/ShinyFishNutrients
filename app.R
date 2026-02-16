@@ -104,7 +104,7 @@ ui <- fluidPage(
                  )"),
             h4('Code'),
             HTML(r"(Created by James Robinson, with Kendra Byrd, Pip Cohen, Nick Graham, Christina Hicks, Eva Maire, Lydia O'Meara, Sarah Martin & Aaron MacNeil. 
-                 Data visualisation in R using tidyverse with ggradar, deployed using Shiny.)")),
+                 Data visualisation in R using tidyverse with ggradar, deployed using Shiny.)"))),
         # Main panel for displaying outputs
         mainPanel(
             tabsetPanel(
